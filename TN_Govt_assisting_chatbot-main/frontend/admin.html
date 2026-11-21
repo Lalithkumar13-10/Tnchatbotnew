@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="description" content="Nagar Kuraiteer Officer and CM-Cell Governance Console for Coimbatore civic grievance oversight."/>
+  <title>Admin · Nagar Kuraiteer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Anek+Tamil:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/app/styles.css"/>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header class="site-header" role="banner">
+    <div class="header-brand">
+      <div class="logo-badge" aria-hidden="true">🏛️</div>
+      <div>
+        <h1>Nagar Kuraiteer</h1>
+        <p class="header-sub">Officer &amp; CM-Cell Console · Coimbatore</p>
+      </div>
+    </div>
+
+    <div class="admin-controls">
+      <label for="role">Viewing as</label>
+      <select id="role" name="role" class="header-select">
+        <option value="cm_cell">CM Cell</option>
+        <option value="collector">District Collector</option>
+        <option value="commissioner">Commissioner</option>
+        <option value="dept_head">Dept Head</option>
+        <option value="ward_officer">Ward Officer</option>
+        <option value="auditor">Auditor (read-only)</option>
+      </select>
+      <button type="button" id="escalateBtn" class="btn header-btn">Run SLA escalation</button>
+    </div>
+  </header>
+
+  <main id="main-content" class="admin-wrap" tabindex="-1">
+    <div id="adminAlert" class="banner error hidden" role="alert" aria-live="assertive"></div>
+    <div id="adminStatus" class="banner success hidden" role="status" aria-live="polite"></div>
+    <div id="adminSrAnnouncer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Optional Admin API Key unlock form (shown only if server enforces ADMIN_API_KEY) -->
+    <section id="adminKeySection" class="panel hidden" aria-labelledby="adminKeyHeading">
+      <h2 id="adminKeyHeading">Administrator Key Required</h2>
+      <form id="adminKeyForm" class="row mt" novalidate>
+        <div class="row-grow">
+          <label for="adminKeyInput">Admin API Key</label>
+          <input id="adminKeyInput" type="password" autocomplete="current-password" required/>
+        </div>
+        <button type="submit" class="btn">Unlock Console</button>
+      </form>
+    </section>
+
+    <section aria-labelledby="overviewHeading">
+      <h2 id="overviewHeading" class="sr-only">Grievance Oversight Summary</h2>
+      <div class="stats-grid" id="stats" aria-live="polite"></div>
+    </section>
+
+    <section aria-labelledby="queueHeading">
+      <h2 id="queueHeading" class="sr-only">Grievance Queue and Filters</h2>
+      <div class="filters-bar" role="search" aria-label="Filter grievances">
+        <div class="filter-group">
+          <label for="fStatus">Status</label>
+          <select id="fStatus" name="status">
+            <option value="">All statuses</option>
+            <option value="registered">Registered</option>
+            <option value="assigned">Assigned</option>
+            <option value="in_progress">In Progress</option>
+            <option value="escalated">Escalated</option>
+            <option value="reopened">Reopened</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="fCat">Category</label>
+          <select id="fCat" name="category">
+            <option value="">All categories</option>
+            <option value="streetlight">Streetlight</option>
+            <option value="garbage">Garbage</option>
+            <option value="water_supply">Water Supply</option>
+            <option value="drainage">Drainage</option>
+            <option value="sewage">Sewage</option>
+            <option value="road">Road</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <p id="roleNote" class="muted" aria-live="polite"></p>
+      </div>
+
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Grievances table">
+        <table>
+          <caption class="sr-only">Civic grievances queue with severity, status, reporter count, and SLA due date</caption>
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Type</th>
+              <th scope="col">Ward</th>
+              <th scope="col">Severity</th>
+              <th scope="col">Status</th>
+              <th scope="col">Reporters</th>
+              <th scope="col">SLA</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="drawerBackdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
+  <aside
+    id="drawer"
+    class="drawer hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="drawerTitle"
+    aria-hidden="true"
+  ></aside>
+
+  <script src="/app/admin.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ta">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="description" content="Nagar Kuraiteer — Official bilingual civic grievance assistant for Coimbatore City Municipal Corporation."/>
+  <title>நகர குறைதீர் · Nagar Kuraiteer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Anek+Tamil:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/app/styles.css"/>
+</head>
+<body class="citizen-page">
+  <a href="#main-content" class="skip-link" data-t="skipMain">முக்கிய உள்ளடக்கத்திற்குச் செல்ல</a>
+
+  <div class="app-shell">
+    <div class="card">
+      <header class="site-header" role="banner">
+        <div class="header-brand">
+          <div class="logo-badge" aria-hidden="true">🏛️</div>
+          <div>
+            <h1 id="hTitle">நகர குறைதீர்</h1>
+            <p class="header-sub" id="hSub">கோயம்புத்தூர் · குடிமக்கள் குறைதீர் உதவியாளர்</p>
+          </div>
+        </div>
+        <div class="lang-group" role="group" aria-label="Language selection">
+          <button type="button" id="lta" class="lang-btn" lang="ta" aria-pressed="true">தமிழ்</button>
+          <button type="button" id="len" class="lang-btn" lang="en" aria-pressed="false">English</button>
+        </div>
+      </header>
+
+      <main id="main-content" class="card-body" tabindex="-1">
+        <div id="alertBanner" class="banner error hidden" role="alert" aria-live="assertive"></div>
+        <div id="statusBanner" class="banner success hidden" role="status" aria-live="polite"></div>
+        <div id="srAnnouncer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+        <!-- STEP 1: Phone Verification -->
+        <section id="authSection" aria-labelledby="verifyHeading">
+          <h2 id="verifyHeading" tabindex="-1" data-t="verifyTitle"></h2>
+          <p class="muted" id="verifySub" data-t="verifySub"></p>
+
+          <form id="otpRequestForm" novalidate>
+            <div class="field">
+              <label for="phone" data-t="phoneLabel"></label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                aria-describedby="verifySub"
+                placeholder="+91 9876543210"
+                required
+              />
+            </div>
+            <button type="submit" id="sendOtpBtn" class="btn full mt" data-t="sendOtp"></button>
+          </form>
+
+          <form id="otpVerifyForm" class="hidden" novalidate>
+            <div class="field">
+              <label for="otp" data-t="otpLabel"></label>
+              <input
+                id="otp"
+                name="otp"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                aria-describedby="otpHint"
+                placeholder="123456"
+                required
+              />
+              <p class="field-hint" id="otpHint" aria-live="polite"></p>
+            </div>
+            <button type="submit" id="verifyOtpBtn" class="btn full mt" data-t="verify"></button>
+          </form>
+
+          <p class="center mt">
+            <button type="button" id="showTrackBtn" class="link-btn" data-t="haveId"></button>
+          </p>
+        </section>
+
+        <!-- STEP 2: Conversational Intake -->
+        <section id="chatSection" class="hidden" aria-labelledby="chatHeading">
+          <h2 id="chatHeading" class="sr-only" tabindex="-1" data-t="chatTitle"></h2>
+          <div
+            id="log"
+            class="chat-log"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+            aria-label="Conversation history"
+            tabindex="0"
+          ></div>
+          <div id="postChat"></div>
+          <form id="composerForm" class="composer" novalidate>
+            <label for="inp" class="sr-only" data-t="messageLabel"></label>
+            <textarea
+              id="inp"
+              name="message"
+              rows="2"
+              data-tph="typeHere"
+              aria-describedby="composerHint"
+            ></textarea>
+            <button type="submit" id="sendBtn" class="btn" data-t="sendBtn"></button>
+          </form>
+          <p id="composerHint" class="sr-only" data-t="enterHint"></p>
+        </section>
+
+        <!-- STEP 3: Grievance Tracking -->
+        <section id="trackSection" class="hidden" aria-labelledby="trackHeading">
+          <h2 id="trackHeading" tabindex="-1" data-t="trackTitle"></h2>
+          <form id="trackForm" novalidate>
+            <div class="field">
+              <label for="tid" data-t="trackIdLabel"></label>
+              <input
+                id="tid"
+                name="tracking_id"
+                type="text"
+                autocomplete="off"
+                placeholder="TN-CBE-2026-123456"
+                required
+              />
+            </div>
+            <button type="submit" id="trackBtn" class="btn full mt" data-t="trackBtn"></button>
+          </form>
+          <div id="trackOut" aria-live="polite"></div>
+          <p class="center mt">
+            <button type="button" id="backHomeBtn" class="link-btn" data-t="backHome"></button>
+          </p>
+        </section>
+
+        <footer class="site-footer" role="contentinfo">
+          <span data-t="demoNote"></span>
+        </footer>
+      </main>
+    </div>
+  </div>
+
+  <script src="/app/citizen.js" defer></script>
+</body>
+</html>

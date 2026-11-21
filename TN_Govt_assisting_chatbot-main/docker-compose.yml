@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - LLM_MODE=${LLM_MODE:-auto}
+      - APP_ENV=${APP_ENV:-development}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-}
+    restart: unless-stopped
