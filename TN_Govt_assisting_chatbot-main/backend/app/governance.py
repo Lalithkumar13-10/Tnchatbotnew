@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session as OrmSession
 
 from . import config
 from .db import AuditEvent, Grievance, Officer, now
+from .security import namespace_actor
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +63,12 @@ def audit(
     to_val: str | None = None,
     note: str | None = None,
 ) -> AuditEvent:
-    """Append a tamper-evident SHA-256 hash-chained audit event."""
+    """Append a tamper-evident SHA-256 hash-chained audit event with role-namespaced actor."""
     prev = _last_hash(db, gid)
     ts = now()
+    scoped_actor = namespace_actor(actor_role, actor_id)
     digest = _hash_payload(
-        gid, event_type, from_val, to_val, note, actor_id, prev, ts.isoformat()
+        gid, event_type, from_val, to_val, note, scoped_actor, prev, ts.isoformat()
     )
     ev = AuditEvent(
         grievance_id=gid,
@@ -74,7 +76,7 @@ def audit(
         from_val=from_val,
         to_val=to_val,
         note=note,
-        actor_id=actor_id,
+        actor_id=scoped_actor,
         actor_role=actor_role,
         prev_hash=prev,
         hash=digest,

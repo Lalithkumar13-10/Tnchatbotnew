@@ -11,14 +11,14 @@
   --teal: #0C5248;
   --teal-hover: #094139;
   --teal-soft: #E4F0EC;
-  --accent: #A64B00;        /* >= 5.7:1 contrast with #fff */
-  --accent-hover: #8A3E00;
+  --accent: #8A3D00;        /* >= 7.6:1 AAA contrast with #fff */
+  --accent-hover: #703100;
   --accent-bg: #FFF7ED;
-  --muted: #42544F;         /* >= 7.1:1 contrast on #EFF3F1, 8.0:1 on #fff */
+  --muted: #42544F;         /* >= 7.1:1 AAA contrast on #EFF3F1, 8.0:1 on #fff */
   --line: #C5D4CF;
   --border-input: #657A74;  /* >= 4.4:1 non-text contrast on #fff */
-  --ok: #15624B;            /* >= 7.2:1 contrast with #fff */
-  --high: #B32D1B;          /* >= 6.5:1 contrast with #fff */
+  --ok: #15624B;            /* >= 7.2:1 AAA contrast with #fff */
+  --high: #9E1F10;          /* >= 7.9:1 AAA contrast with #fff */
   --error-bg: #FEF2F2;
   --error-ink: #991B1B;
   --ok-bg: #ECFDF5;

@@ -36,12 +36,12 @@
 
         <!-- STEP 1: Phone Verification -->
         <section id="authSection" aria-labelledby="verifyHeading">
-          <h2 id="verifyHeading" tabindex="-1" data-t="verifyTitle"></h2>
-          <p class="muted" id="verifySub" data-t="verifySub"></p>
+          <h2 id="verifyHeading" tabindex="-1" data-t="verifyTitle">கைபேசி எண் சரிபார்ப்பு</h2>
+          <p class="muted" id="verifySub" data-t="verifySub">தங்களின் புகாரைக் கண்காணிக்கவும், அதுகுறித்த புதிய தகவல்களை SMS மூலம் அனுப்பவும் மட்டுமே கைபேசி எண் பயன்படுத்தப்படும்.</p>
 
           <form id="otpRequestForm" novalidate>
             <div class="field">
-              <label for="phone" data-t="phoneLabel"></label>
+              <label for="phone" data-t="phoneLabel">கைபேசி எண் (10 இலக்கங்கள்)</label>
               <input
                 id="phone"
                 name="phone"
@@ -53,12 +53,12 @@
                 required
               />
             </div>
-            <button type="submit" id="sendOtpBtn" class="btn full mt" data-t="sendOtp"></button>
+            <button type="submit" id="sendOtpBtn" class="btn full mt" data-t="sendOtp">கடவுச்சொல் (OTP) அனுப்பு</button>
           </form>
 
           <form id="otpVerifyForm" class="hidden" novalidate>
             <div class="field">
-              <label for="otp" data-t="otpLabel"></label>
+              <label for="otp" data-t="otpLabel">ஒருமுறை கடவுச்சொல் (OTP)</label>
               <input
                 id="otp"
                 name="otp"
@@ -71,17 +71,17 @@
               />
               <p class="field-hint" id="otpHint" aria-live="polite"></p>
             </div>
-            <button type="submit" id="verifyOtpBtn" class="btn full mt" data-t="verify"></button>
+            <button type="submit" id="verifyOtpBtn" class="btn full mt" data-t="verify">சரிபார்க்கவும்</button>
           </form>
 
           <p class="center mt">
-            <button type="button" id="showTrackBtn" class="link-btn" data-t="haveId"></button>
+            <button type="button" id="showTrackBtn" class="link-btn" data-t="haveId">மனு எண் மூலம் கண்காணிக்க</button>
           </p>
         </section>
 
         <!-- STEP 2: Conversational Intake -->
         <section id="chatSection" class="hidden" aria-labelledby="chatHeading">
-          <h2 id="chatHeading" class="sr-only" tabindex="-1" data-t="chatTitle"></h2>
+          <h2 id="chatHeading" class="sr-only" tabindex="-1" data-t="chatTitle">குறைதீர் உதவியாளர் உரையாடல்</h2>
           <div
             id="log"
             class="chat-log"
@@ -93,25 +93,26 @@
           ></div>
           <div id="postChat"></div>
           <form id="composerForm" class="composer" novalidate>
-            <label for="inp" class="sr-only" data-t="messageLabel"></label>
+            <label for="inp" class="sr-only" data-t="messageLabel">உங்கள் புகாரை விவரிக்கவும்</label>
             <textarea
               id="inp"
               name="message"
               rows="2"
               data-tph="typeHere"
+              placeholder="உங்கள் புகாரை இங்கே தட்டச்சு செய்யவும்..."
               aria-describedby="composerHint"
             ></textarea>
-            <button type="submit" id="sendBtn" class="btn" data-t="sendBtn"></button>
+            <button type="submit" id="sendBtn" class="btn" data-t="sendBtn">சமர்ப்பி</button>
           </form>
-          <p id="composerHint" class="sr-only" data-t="enterHint"></p>
+          <p id="composerHint" class="sr-only" data-t="enterHint">சமர்ப்பிக்க Enter அழுத்தவும், புதிய வரிக்கு Shift+Enter அழுத்தவும்.</p>
         </section>
 
         <!-- STEP 3: Grievance Tracking -->
         <section id="trackSection" class="hidden" aria-labelledby="trackHeading">
-          <h2 id="trackHeading" tabindex="-1" data-t="trackTitle"></h2>
+          <h2 id="trackHeading" tabindex="-1" data-t="trackTitle">மனு நிலை அறிதல் (Track Grievance)</h2>
           <form id="trackForm" novalidate>
             <div class="field">
-              <label for="tid" data-t="trackIdLabel"></label>
+              <label for="tid" data-t="trackIdLabel">மனு எண் (Tracking ID)</label>
               <input
                 id="tid"
                 name="tracking_id"
@@ -121,16 +122,16 @@
                 required
               />
             </div>
-            <button type="submit" id="trackBtn" class="btn full mt" data-t="trackBtn"></button>
+            <button type="submit" id="trackBtn" class="btn full mt" data-t="trackBtn">நிலை அறிய</button>
           </form>
           <div id="trackOut" aria-live="polite"></div>
           <p class="center mt">
-            <button type="button" id="backHomeBtn" class="link-btn" data-t="backHome"></button>
+            <button type="button" id="backHomeBtn" class="link-btn" data-t="backHome">முகப்பு பக்கத்திற்கு செல்ல</button>
           </p>
         </section>
 
         <footer class="site-footer" role="contentinfo">
-          <span data-t="demoNote"></span>
+          <span data-t="demoNote">நகர குறைதீர் — கோவை மாநகராட்சி குடிமக்கள் குறைதீர்வு முகப்பு</span>
         </footer>
       </main>
     </div>

@@ -64,7 +64,12 @@ Citizen app ─┐                         ┌─ Officer / CM console
 
 - **LLM gateway** (`app/llm_gateway.py`): LiteLLM to Gemini, with rate-aware rotation across the five-model pool — per-minute (rpm/tpm) **and** per-day (rpd) — cooldowns on 429, and a graceful form fallback when everything is throttled. See the pool + limits in `app/config.py`.
 - **Intake engine** (`app/intake.py`): the "ask only when needed" state machine with a hard 3-question budget; anything still fuzzy drops into the editable card, never another question.
-- **Governance** (`app/governance.py`): append-only hash-chained audit log, sensitivity routing (never to the official concerned), SLA due dates + escalation ladder, de-duplication.
+- **Governance** (`app/governance.py`): append-only hash-chained audit log with role-namespaced actors, sensitivity routing (never to the official concerned), SLA due dates + escalation ladder, de-duplication.
+
+### Preview Runtime vs. Reference Implementation
+
+- **Root `/server.mjs` + `/src/*` (Express / Node.js)** is the lightweight **preview runtime** (port `3000`) mirroring the full API contract, security invariants, optional live Gemini intake, compression, and static caching for zero-setup previews and automated Node testing (`npm test`, `npm run lint`).
+- **`TN_Govt_assisting_chatbot-main/backend/app/*` (FastAPI / SQLAlchemy)** is the **reference implementation** with SQLite WAL persistence, Pydantic v2 schemas, and multi-model LiteLLM pooling (`python -m pytest backend/tests`).
 
 ---
 

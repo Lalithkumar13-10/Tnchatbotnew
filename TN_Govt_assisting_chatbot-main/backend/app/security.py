@@ -30,6 +30,26 @@ CSP_HEADER: str = (
 )
 
 
+def namespace_actor(role: str, actor_id: str) -> str:
+    """Prefix an actor identifier with the authenticated role to prevent spoofing."""
+    clean_role = (role or "unknown").strip().lower()
+    clean_actor = (actor_id or "unknown").strip()[:64] or "unknown"
+    prefix = f"{clean_role}:"
+    return clean_actor if clean_actor.startswith(prefix) else f"{prefix}{clean_actor}"
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract the client IP address from X-Forwarded-For or connection info."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return first
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
 @dataclass
 class OtpRecord:
     """State for a single phone verification challenge/session."""
@@ -94,21 +114,23 @@ class OtpStore:
             return token
 
     def require_verified(self, phone: str, authorization: str | None = None) -> None:
-        """Ensure phone is verified and (when supplied) the Bearer token matches."""
+        """Ensure phone is verified AND a valid Authorization: Bearer token is supplied."""
         now_ts = time.monotonic()
         with self._lock:
             self._prune(now_ts)
             rec = self._records.get(phone)
             if rec is None or not rec.verified or rec.expires_at < now_ts:
                 raise HTTPException(401, "Phone not verified")
-            if authorization:
-                scheme, _, supplied = authorization.partition(" ")
-                if (
-                    scheme.lower() != "bearer"
-                    or not rec.token
-                    or not hmac.compare_digest(rec.token, supplied.strip())
-                ):
-                    raise HTTPException(401, "Invalid session token")
+            if not authorization:
+                raise HTTPException(401, "Authorization Bearer token required")
+            scheme, _, supplied = authorization.strip().partition(" ")
+            if (
+                scheme.lower() != "bearer"
+                or not supplied.strip()
+                or not rec.token
+                or not hmac.compare_digest(rec.token, supplied.strip())
+            ):
+                raise HTTPException(401, "Invalid session token")
 
     def clear(self) -> None:
         """Remove all OTP records (used by tests)."""
@@ -146,15 +168,15 @@ rate_limiter = RateLimiter()
 
 
 def require_admin_role(
-    x_role: str = Header(default="cm_cell"),
+    x_role: str = Header(default=config.DEFAULT_ADMIN_ROLE),
     x_admin_key: str | None = Header(default=None),
 ) -> str:
-    """FastAPI dependency enforcing valid RBAC roles and optional admin API key."""
+    """FastAPI dependency enforcing least-privilege RBAC and optional admin API key."""
     if config.ADMIN_API_KEY:
         if not x_admin_key or not hmac.compare_digest(config.ADMIN_API_KEY, x_admin_key):
             raise HTTPException(401, "Valid X-Admin-Key header required")
 
-    normalized = (x_role or "").strip().lower()
+    normalized = (x_role or config.DEFAULT_ADMIN_ROLE).strip().lower()
     if normalized not in config.VALID_ROLES:
         raise HTTPException(403, "Unknown or unauthorized role")
     return normalized

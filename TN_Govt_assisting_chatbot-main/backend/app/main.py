@@ -23,7 +23,8 @@ FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """Initialize database schema on application startup."""
+    """Validate production security invariants and initialize database schema on startup."""
+    config.validate_production_config()
     init_db()
     logger.info(
         "Nagar Kuraiteer started (city=%s, llm_live=%s)",

@@ -110,7 +110,7 @@ window.NagarUI = (() => {
       }
 
       const response = await fetch(baseUrl + path, init);
-      let data = {};
+      let data;
       try {
         data = await response.json();
       } catch (_err) {

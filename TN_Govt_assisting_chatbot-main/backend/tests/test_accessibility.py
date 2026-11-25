@@ -26,10 +26,15 @@ class _A11yHtmlAuditor(HTMLParser):
         self.headings: list[int] = []
         self.label_fors: set[str] = set()
         self.controls: list[dict[str, str]] = []
+        self.imgs_without_alt: list[dict[str, str]] = []
+        self.buttons_without_name: list[dict[str, str]] = []
+        self._open_button: dict[str, str] | None = None
+        self._open_button_text: list[str] = []
         self.inline_handlers: list[tuple[str, str]] = []
         self.inline_scripts = 0
         self.inline_styles = 0
         self.live_regions: list[str] = []
+        self.has_role_log = False
         self.dialogs: list[dict[str, str]] = []
         self.tables = 0
         self.table_captions = 0
@@ -37,6 +42,7 @@ class _A11yHtmlAuditor(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attr_map = {k.lower(): (v or "") for k, v in attrs}
+        attr_keys = {k.lower() for k, _ in attrs}
 
         for k in attr_map:
             if k.startswith("on"):
@@ -61,6 +67,12 @@ class _A11yHtmlAuditor(HTMLParser):
             self.label_fors.add(attr_map["for"])
         elif tag in ("input", "select", "textarea"):
             self.controls.append(attr_map)
+        elif tag == "img":
+            if "alt" not in attr_keys:
+                self.imgs_without_alt.append(attr_map)
+        elif tag == "button":
+            self._open_button = attr_map
+            self._open_button_text = []
         elif tag == "script" and "src" not in attr_map:
             self.inline_scripts += 1
         elif tag == "style":
@@ -75,8 +87,27 @@ class _A11yHtmlAuditor(HTMLParser):
 
         if "aria-live" in attr_map:
             self.live_regions.append(attr_map["aria-live"])
+        if attr_map.get("role") == "log":
+            self.has_role_log = True
         if attr_map.get("role") == "dialog":
             self.dialogs.append(attr_map)
+
+    def handle_data(self, data: str) -> None:
+        if self._open_button is not None:
+            self._open_button_text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "button" and self._open_button is not None:
+            text = "".join(self._open_button_text).strip()
+            has_name = bool(
+                text
+                or self._open_button.get("aria-label", "").strip()
+                or self._open_button.get("aria-labelledby", "").strip()
+            )
+            if not has_name:
+                self.buttons_without_name.append(self._open_button)
+            self._open_button = None
+            self._open_button_text = []
 
 
 def _audit_html(filename: str) -> _A11yHtmlAuditor:
@@ -106,6 +137,13 @@ def _contrast_ratio(fg_hex: str, bg_hex: str) -> float:
     return (bright + 0.05) / (dark + 0.05)
 
 
+def test_auditor_detects_missing_img_alt_and_unnamed_button():
+    auditor = _A11yHtmlAuditor()
+    auditor.feed('<img src="logo.png"><button type="button"></button>')
+    assert len(auditor.imgs_without_alt) == 1
+    assert len(auditor.buttons_without_name) == 1
+
+
 def test_citizen_html_wcag_compliance():
     a = _audit_html("citizen.html")
     assert a.html_lang in ("ta", "en")
@@ -125,6 +163,9 @@ def test_citizen_html_wcag_compliance():
         assert cid in a.label_fors or ctrl.get("aria-label") or ctrl.get("aria-labelledby"), (
             f"Unlabeled form control in citizen.html: {ctrl}"
         )
+    assert a.imgs_without_alt == []
+    assert a.buttons_without_name == []
+    assert a.has_role_log is True
     assert len(a.live_regions) >= 2
     assert a.inline_handlers == []
     assert a.inline_scripts == 0
@@ -145,6 +186,8 @@ def test_admin_html_wcag_compliance():
         assert cid in a.label_fors or ctrl.get("aria-label") or ctrl.get("aria-labelledby"), (
             f"Unlabeled form control in admin.html: {ctrl}"
         )
+    assert a.imgs_without_alt == []
+    assert a.buttons_without_name == []
     assert a.tables >= 1 and a.table_captions >= a.tables
     assert a.th_without_scope == 0
     assert len(a.dialogs) == 1
@@ -166,14 +209,14 @@ def test_styles_contrast_and_accessibility_rules():
     assert "min-height: 44px" in css
 
     vars_found = dict(re.findall(r"--([a-z-]+)\s*:\s*(#[0-9a-fA-F]{3,6})", css))
-    # WCAG 2.1 AA requires >= 4.5:1 for normal text and >= 3.0:1 for UI borders
+    # WCAG 2.1 AAA requires >= 7.0:1 for normal text and >= 3.0:1 for UI borders
     assert _contrast_ratio(vars_found["ink"], vars_found["surface"]) >= 7.0
-    assert _contrast_ratio(vars_found["muted"], vars_found["surface"]) >= 4.5
-    assert _contrast_ratio(vars_found["muted"], vars_found["bg"]) >= 4.5
-    assert _contrast_ratio("#FFFFFF", vars_found["teal"]) >= 4.5
-    assert _contrast_ratio("#FFFFFF", vars_found["accent"]) >= 4.5
-    assert _contrast_ratio("#FFFFFF", vars_found["ok"]) >= 4.5
-    assert _contrast_ratio("#FFFFFF", vars_found["high"]) >= 4.5
+    assert _contrast_ratio(vars_found["muted"], vars_found["surface"]) >= 7.0
+    assert _contrast_ratio(vars_found["muted"], vars_found["bg"]) >= 7.0
+    assert _contrast_ratio("#FFFFFF", vars_found["teal"]) >= 7.0
+    assert _contrast_ratio("#FFFFFF", vars_found["accent"]) >= 7.0
+    assert _contrast_ratio("#FFFFFF", vars_found["ok"]) >= 7.0
+    assert _contrast_ratio("#FFFFFF", vars_found["high"]) >= 7.0
     assert _contrast_ratio(vars_found["border-input"], vars_found["surface"]) >= 3.0
 
 

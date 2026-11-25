@@ -54,9 +54,24 @@ def is_production() -> bool:
     return APP_ENV == "production"
 
 
+def validate_production_config() -> None:
+    """Refuse startup in production unless ADMIN_API_KEY is set and MOCK_OTP is changed."""
+    if not is_production():
+        return
+    if not ADMIN_API_KEY:
+        raise RuntimeError(
+            "Refusing to start in production: ADMIN_API_KEY must be set."
+        )
+    if not MOCK_OTP or MOCK_OTP == "123456":
+        raise RuntimeError(
+            "Refusing to start in production: MOCK_OTP must not use the demo value 123456."
+        )
+
+
 # ----------------------------------------------------------------------------
 # Governance constants (single source of truth)
 # ----------------------------------------------------------------------------
+DEFAULT_ADMIN_ROLE: str = "ward_officer"
 OPEN_STATES: tuple[str, ...] = (
     "registered",
     "assigned",

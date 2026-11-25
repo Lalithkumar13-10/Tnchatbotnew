@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Response
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session as OrmSession
 
 from .. import config
@@ -11,7 +11,7 @@ from .. import governance as gov
 from .. import intake as intake_engine
 from ..db import Feedback, Grievance, get_db
 from ..schemas import ConfirmIn, FeedbackIn, IntakeMessageIn, OtpIn, OtpVerifyIn
-from ..security import otp_store, rate_limiter
+from ..security import get_client_ip, otp_store, rate_limiter
 from ..serializers import serialize_slip
 
 router = APIRouter(prefix="/api/v1", tags=["citizen"])
@@ -100,8 +100,11 @@ def file_grievance(
 
 
 @router.get("/grievances/{gid}")
-def track_grievance(gid: str, db: OrmSession = Depends(get_db)) -> dict[str, Any]:
-    """Retrieve public tracking status for a grievance by ID."""
+def track_grievance(
+    gid: str, request: Request, db: OrmSession = Depends(get_db)
+) -> dict[str, Any]:
+    """Retrieve public tracking status for a grievance by ID (30 req/min per IP)."""
+    rate_limiter.check(f"track:{get_client_ip(request)}", max_requests=30, window_seconds=60)
     if len(gid) > 64:
         raise HTTPException(400, "Invalid tracking ID")
     grievance = db.get(Grievance, gid)
@@ -111,8 +114,11 @@ def track_grievance(gid: str, db: OrmSession = Depends(get_db)) -> dict[str, Any
 
 
 @router.post("/grievances/{gid}/reopen")
-def reopen_grievance(gid: str, db: OrmSession = Depends(get_db)) -> dict[str, Any]:
-    """Reopen a resolved or closed grievance when the citizen is not satisfied."""
+def reopen_grievance(
+    gid: str, request: Request, db: OrmSession = Depends(get_db)
+) -> dict[str, Any]:
+    """Reopen a resolved or closed grievance when the citizen is not satisfied (10 req/min per IP)."""
+    rate_limiter.check(f"reopen:{get_client_ip(request)}", max_requests=10, window_seconds=60)
     grievance = db.get(Grievance, gid)
     if not grievance:
         raise HTTPException(404, "Not found")
