@@ -19,15 +19,16 @@ from app import intake as ie
 from app import main as app_main
 from app.db import AuditEvent, Base, Officer, SessionLocal, engine, init_db, now
 from app.llm_gateway import GatewayExhausted, GeminiPool, _ModelState
+from app.security import otp_store, rate_limiter
 
 
 @pytest.fixture(autouse=True)
 def clean_state():
     Base.metadata.drop_all(bind=engine)
     init_db()
-    app_main._OTP.clear()
-    app_main._RATE_BUCKETS.clear()
-    ie._SESSIONS.clear()
+    otp_store.clear()
+    rate_limiter.clear()
+    ie.reset_sessions()
     yield
 
 

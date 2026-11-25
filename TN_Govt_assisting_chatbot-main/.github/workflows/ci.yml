@@ -1,0 +1,46 @@
+name: CI Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend-and-a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+
+      - name: Lint with Ruff
+        run: ruff check backend
+
+      - name: Type-check with Mypy
+        run: mypy backend/app
+
+      - name: Run unit, RBAC, and WCAG accessibility tests
+        run: python -m pytest backend/tests
+
+  frontend-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify frontend JavaScript syntax
+        run: |
+          node --check frontend/ui_utils.js
+          node --check frontend/citizen.js
+          node --check frontend/admin.js

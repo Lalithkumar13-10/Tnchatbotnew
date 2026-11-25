@@ -74,6 +74,18 @@ def get_session(sid: str, ui_language: str = "en") -> Session:
         return s
 
 
+def peek_session(sid: str) -> Session | None:
+    """Return an existing active session without creating one."""
+    with _SESSIONS_LOCK:
+        return _SESSIONS.get(sid)
+
+
+def reset_sessions() -> None:
+    """Clear all in-memory intake sessions (used by tests)."""
+    with _SESSIONS_LOCK:
+        _SESSIONS.clear()
+
+
 def _merge(acc: Accum, ext: Extraction) -> None:
     if ext.category:
         acc.category = ext.category.value

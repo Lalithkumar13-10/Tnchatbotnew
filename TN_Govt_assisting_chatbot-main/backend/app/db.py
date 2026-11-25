@@ -146,6 +146,15 @@ class Feedback(Base):
     at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
 
 
+def get_db():
+    """Yield a scoped SQLAlchemy session and close it deterministically."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 def init_db() -> None:
     """Create tables and indexes if they do not exist."""
     Base.metadata.create_all(engine)

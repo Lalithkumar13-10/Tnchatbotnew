@@ -8,7 +8,7 @@
     "dev": "node server.mjs",
     "start": "node server.mjs",
     "build": "node --check server.mjs",
-    "lint": "node --check server.mjs && node --check TN_Govt_assisting_chatbot-main/frontend/citizen.js && node --check TN_Govt_assisting_chatbot-main/frontend/admin.js"
+    "lint": "node --check server.mjs && node --check TN_Govt_assisting_chatbot-main/frontend/ui_utils.js && node --check TN_Govt_assisting_chatbot-main/frontend/citizen.js && node --check TN_Govt_assisting_chatbot-main/frontend/admin.js"
   },
   "dependencies": {
     "express": "^4.21.2"

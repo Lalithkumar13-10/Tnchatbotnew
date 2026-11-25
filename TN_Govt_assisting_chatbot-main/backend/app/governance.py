@@ -4,19 +4,24 @@
 * Sensitive grievances are flagged, routed away from the official they concern,
   and masked from the ordinary queue.
 * SLA due dates and an escalation ladder create named accountability.
+* Oversight metrics and filtered listings execute directly in SQL.
 * Nothing is ever hard-deleted.
 """
 from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import logging
 import secrets
+from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session as OrmSession
 
 from . import config
 from .db import AuditEvent, Grievance, Officer, now
+
+logger = logging.getLogger(__name__)
 
 _SENSITIVE_KEYWORDS_LOWER: tuple[str, ...] = tuple(
     k.lower() for k in config.SENSITIVE_KEYWORDS
@@ -25,13 +30,12 @@ _SENSITIVE_KEYWORDS_LOWER: tuple[str, ...] = tuple(
 
 # ---------------- audit (append-only, hash-chained) ----------------
 def _last_hash(db: OrmSession, gid: str) -> str | None:
-    ev = db.execute(
+    return db.execute(
         select(AuditEvent.hash)
         .where(AuditEvent.grievance_id == gid)
         .order_by(AuditEvent.id.desc())
         .limit(1)
     ).scalar_one_or_none()
-    return ev
 
 
 def _hash_payload(
@@ -60,7 +64,7 @@ def audit(
 ) -> AuditEvent:
     """Append a tamper-evident SHA-256 hash-chained audit event."""
     prev = _last_hash(db, gid)
-    ts = now()  # pin one timestamp for both the stored row and the hash payload
+    ts = now()
     digest = _hash_payload(
         gid, event_type, from_val, to_val, note, actor_id, prev, ts.isoformat()
     )
@@ -77,7 +81,7 @@ def audit(
         at=ts,
     )
     db.add(ev)
-    db.flush()  # make it visible to the next _last_hash() in this same transaction
+    db.flush()
     return ev
 
 
@@ -91,7 +95,7 @@ def verify_chain(db: OrmSession, gid: str) -> bool:
     ).scalars()
     for ev in events:
         if ev.prev_hash != prev:
-            return False  # linkage broken
+            return False
         expected = _hash_payload(
             gid,
             ev.event_type,
@@ -103,7 +107,7 @@ def verify_chain(db: OrmSession, gid: str) -> bool:
             ev.at.isoformat(),
         )
         if expected != ev.hash:
-            return False  # content tampered
+            return False
         prev = ev.hash
     return True
 
@@ -122,8 +126,8 @@ def route(
 ) -> tuple[str, str | None]:
     """Return (department, assigned_officer_id).
 
-    Sensitive grievances are NEVER routed to the ordinary ward officer (who may be
-    the subject); they go to the collector/cm_cell escalation tier instead.
+    Sensitive grievances are never routed to the ordinary ward officer; they go
+    directly to the collector/cm_cell escalation tier.
     """
     dept = str(config.CATEGORIES.get(category, config.CATEGORIES["other"])["dept"])
     if sensitivity == "sensitive":
@@ -165,7 +169,7 @@ def sla_due(category: str, created: dt.datetime) -> dt.datetime:
 
 
 def escalate_overdue(db: OrmSession) -> list[str]:
-    """Move breached, still-open grievances one step up the ladder. Returns ids moved."""
+    """Move breached, still-open grievances one step up the ladder. Returns IDs moved."""
     cutoff = now()
     max_level = len(config.ESCALATION_LADDER) - 1
     candidates = (
@@ -200,6 +204,7 @@ def escalate_overdue(db: OrmSession) -> list[str]:
 
     if moved:
         db.commit()
+        logger.info("Auto-escalated %d overdue grievances", len(moved))
     return moved
 
 
@@ -248,11 +253,10 @@ def file_grievance(
     description_clean: str,
     severity: str,
     sensitivity: str,
-    gps: dict | None = None,
+    gps: dict[str, float] | None = None,
     add_support_to: str | None = None,
 ) -> Grievance:
     """Register a new grievance or attach co-reporter support to an existing one."""
-    # Co-report path: attach the citizen's voice to an existing open issue.
     if add_support_to:
         parent = db.get(Grievance, add_support_to)
         if parent:
@@ -316,3 +320,99 @@ def file_grievance(
     db.commit()
     db.refresh(g)
     return g
+
+
+# ---------------- query & oversight aggregations ----------------
+def list_grievances(
+    db: OrmSession,
+    *,
+    can_view_sensitive: bool,
+    status: str | None = None,
+    ward: str | None = None,
+    category: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[Grievance]:
+    """Query filtered grievances in descending chronological order."""
+    stmt = select(Grievance).order_by(Grievance.created_at.desc())
+    if not can_view_sensitive:
+        stmt = stmt.where(Grievance.sensitivity != "sensitive")
+    if status:
+        stmt = stmt.where(Grievance.status == status)
+    if ward:
+        stmt = stmt.where(Grievance.ward == ward)
+    if category:
+        stmt = stmt.where(Grievance.category == category)
+    return list(db.execute(stmt.limit(limit).offset(offset)).scalars())
+
+
+def compute_oversight(db: OrmSession, *, can_view_sensitive: bool) -> dict[str, Any]:
+    """Compute role-scoped oversight summary, department breakdown, and hotspots in SQL."""
+    cutoff = now()
+    is_open = Grievance.status.in_(config.OPEN_STATES)
+    is_closed = Grievance.status.in_(config.CLOSED_STATES)
+    is_breached = is_open & (Grievance.sla_due_at < cutoff)
+
+    visibility_filter = [] if can_view_sensitive else [Grievance.sensitivity != "sensitive"]
+
+    summary_stmt = select(
+        func.count(Grievance.id).label("total"),
+        func.coalesce(func.sum(case((is_open, 1), else_=0)), 0).label("open_cnt"),
+        func.coalesce(func.sum(case((is_closed, 1), else_=0)), 0).label("resolved_cnt"),
+        func.coalesce(func.sum(case((is_breached, 1), else_=0)), 0).label("breached_cnt"),
+        func.coalesce(
+            func.sum(case((Grievance.sensitivity == "sensitive", 1), else_=0)), 0
+        ).label("sensitive_cnt"),
+    )
+    if visibility_filter:
+        summary_stmt = summary_stmt.where(*visibility_filter)
+    summary = db.execute(summary_stmt).one()
+
+    dept_stmt = select(
+        Grievance.assigned_dept,
+        func.count(Grievance.id).label("total"),
+        func.coalesce(func.sum(case((is_open, 1), else_=0)), 0).label("open_cnt"),
+        func.coalesce(func.sum(case((is_breached, 1), else_=0)), 0).label("breached_cnt"),
+    ).group_by(Grievance.assigned_dept)
+    if visibility_filter:
+        dept_stmt = dept_stmt.where(*visibility_filter)
+
+    by_department = {
+        row.assigned_dept: {
+            "total": int(row.total),
+            "open": int(row.open_cnt),
+            "breached": int(row.breached_cnt),
+        }
+        for row in db.execute(dept_stmt)
+    }
+
+    hotspot_stmt = (
+        select(
+            Grievance.id,
+            Grievance.category,
+            Grievance.ward,
+            Grievance.reporter_count,
+        )
+        .where(Grievance.reporter_count > 1, *visibility_filter)
+        .order_by(Grievance.reporter_count.desc())
+        .limit(50)
+    )
+    hotspots = [
+        {
+            "id": row.id,
+            "category": row.category,
+            "ward": row.ward,
+            "reporters": int(row.reporter_count),
+        }
+        for row in db.execute(hotspot_stmt)
+    ]
+
+    return {
+        "total": int(summary.total),
+        "open": int(summary.open_cnt),
+        "resolved": int(summary.resolved_cnt),
+        "breached": int(summary.breached_cnt),
+        "sensitive": int(summary.sensitive_cnt) if can_view_sensitive else 0,
+        "by_department": by_department,
+        "hotspots": hotspots,
+    }

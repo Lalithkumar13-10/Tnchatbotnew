@@ -1,6 +1,7 @@
 """The Gemini intake system prompt (single source of truth) and bilingual strings."""
+from __future__ import annotations
 
-INTAKE_SYSTEM_PROMPT = """You are the intake engine for the {city} city civic-grievance portal (Tamil Nadu, India). \
+INTAKE_SYSTEM_PROMPT: str = """You are the intake engine for the {city} city civic-grievance portal (Tamil Nadu, India). \
 Citizens describe civic problems in Tamil, Romanized Tamil (Tanglish), English, or a mix. \
 Treat every message as an official grievance to the government. Your job is to UNDERSTAND and \
 STRUCTURE it — never invent facts, never decide policy, never write to any database.
@@ -24,8 +25,7 @@ RULES — follow strictly:
 - Return ONLY the JSON object matching the schema. No markdown, no extra text.
 """
 
-# Bilingual scripted lines used by the frontend (kept here so nothing is hardcoded in UI).
-STRINGS = {
+STRINGS: dict[str, dict[str, str]] = {
     "welcome": {
         "en": "Hello! Tell me the problem in your area — streetlight, garbage, water, potholes, anything. Tamil or English is fine.",
         "ta": "வணக்கம்! உங்கள் பகுதியில் உள்ள பிரச்சினையைச் சொல்லுங்கள் — தெருவிளக்கு, குப்பை, குடிநீர், சாலை பள்ளம், எதுவானாலும். தமிழிலோ ஆங்கிலத்திலோ சொல்லலாம்.",
@@ -46,4 +46,6 @@ STRINGS = {
 
 
 def line(key: str, lang: str) -> str:
-    return STRINGS.get(key, {}).get(lang, STRINGS.get(key, {}).get("en", ""))
+    """Return a localized UI message string with English fallback."""
+    entry = STRINGS.get(key, {})
+    return entry.get(lang, entry.get("en", ""))

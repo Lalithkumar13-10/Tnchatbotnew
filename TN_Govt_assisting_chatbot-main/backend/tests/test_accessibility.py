@@ -178,7 +178,7 @@ def test_styles_contrast_and_accessibility_rules():
 
 
 def test_frontend_js_xss_and_a11y_hygiene():
-    for js_name in ("citizen.js", "admin.js"):
+    for js_name in ("ui_utils.js", "citizen.js", "admin.js"):
         src = (FRONTEND_DIR / js_name).read_text(encoding="utf-8")
         assert ".innerHTML" not in src, f"Unsafe innerHTML usage found in {js_name}"
         assert "document.write" not in src, f"Unsafe document.write found in {js_name}"

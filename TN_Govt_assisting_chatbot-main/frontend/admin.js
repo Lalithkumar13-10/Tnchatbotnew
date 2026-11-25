@@ -1,106 +1,54 @@
 'use strict';
 
 (() => {
-  const API = '/api/v1';
+  const { el, appendKv, createStatusController, createApiClient, createFocusTrap } = window.NagarUI;
+
   const OFFICERS = ['OFF-WARD42', 'OFF-WARD55', 'OFF-SWM', 'OFF-CMSR', 'OFF-COLL'];
   const SENSITIVE_ROLES = new Set(['collector', 'cm_cell', 'auditor']);
   const ESCALATION_ROLES = new Set(['commissioner', 'collector', 'cm_cell']);
 
-  let adminApiKey = '';
-  let lastTriggerEl = null;
+  const state = {
+    adminApiKey: '',
+    lastTriggerEl: null,
+  };
 
-  const roleSelect = document.getElementById('role');
-  const escalateBtn = document.getElementById('escalateBtn');
-  const statusSelect = document.getElementById('fStatus');
-  const catSelect = document.getElementById('fCat');
-  const roleNoteEl = document.getElementById('roleNote');
-  const statsEl = document.getElementById('stats');
-  const rowsEl = document.getElementById('rows');
-  const drawerEl = document.getElementById('drawer');
-  const backdropEl = document.getElementById('drawerBackdrop');
-  const alertEl = document.getElementById('adminAlert');
-  const statusEl = document.getElementById('adminStatus');
-  const srEl = document.getElementById('adminSrAnnouncer');
-  const adminKeySection = document.getElementById('adminKeySection');
-  const adminKeyForm = document.getElementById('adminKeyForm');
-  const adminKeyInput = document.getElementById('adminKeyInput');
+  const dom = {
+    roleSelect: document.getElementById('role'),
+    escalateBtn: document.getElementById('escalateBtn'),
+    statusSelect: document.getElementById('fStatus'),
+    catSelect: document.getElementById('fCat'),
+    roleNoteEl: document.getElementById('roleNote'),
+    statsEl: document.getElementById('stats'),
+    rowsEl: document.getElementById('rows'),
+    drawerEl: document.getElementById('drawer'),
+    backdropEl: document.getElementById('drawerBackdrop'),
+    adminKeySection: document.getElementById('adminKeySection'),
+    adminKeyForm: document.getElementById('adminKeyForm'),
+    adminKeyInput: document.getElementById('adminKeyInput'),
+  };
 
   function currentRole() {
-    return roleSelect.value;
+    return dom.roleSelect.value;
   }
 
-  function el(tag, attrs, text) {
-    const node = document.createElement(tag);
-    if (attrs) {
-      Object.entries(attrs).forEach(([k, v]) => {
-        if (v === null || v === undefined) return;
-        if (k === 'className') {
-          node.className = v;
-        } else {
-          node.setAttribute(k, String(v));
-        }
-      });
-    }
-    if (text !== undefined && text !== null) {
-      node.textContent = String(text);
-    }
-    return node;
-  }
+  const statusUI = createStatusController({
+    alertEl: document.getElementById('adminAlert'),
+    statusEl: document.getElementById('adminStatus'),
+    srEl: document.getElementById('adminSrAnnouncer'),
+  });
 
-  function clearBanners() {
-    alertEl.classList.add('hidden');
-    alertEl.textContent = '';
-    statusEl.classList.add('hidden');
-    statusEl.textContent = '';
-  }
+  const api = createApiClient({
+    baseUrl: '/api/v1',
+    getHeaders: () => {
+      const headers = { 'X-Role': currentRole() };
+      if (state.adminApiKey) headers['X-Admin-Key'] = state.adminApiKey;
+      return headers;
+    },
+  });
 
-  function showError(msg) {
-    statusEl.classList.add('hidden');
-    alertEl.textContent = msg;
-    alertEl.classList.remove('hidden');
-  }
+  const focusTrap = createFocusTrap(dom.drawerEl, closeDrawer);
 
-  function showStatus(msg) {
-    alertEl.classList.add('hidden');
-    statusEl.textContent = msg;
-    statusEl.classList.remove('hidden');
-    announce(msg);
-  }
-
-  function announce(msg) {
-    srEl.textContent = '';
-    window.setTimeout(() => {
-      srEl.textContent = msg;
-    }, 30);
-  }
-
-  async function api(path, method = 'GET', body) {
-    const headers = {
-      'Content-Type': 'application/json',
-      'X-Role': currentRole(),
-    };
-    if (adminApiKey) {
-      headers['X-Admin-Key'] = adminApiKey;
-    }
-    const opts = { method, headers };
-    if (body !== undefined && body !== null) {
-      opts.body = JSON.stringify(body);
-    }
-    const resp = await fetch(API + path, opts);
-    let data = {};
-    try {
-      data = await resp.json();
-    } catch (_err) {
-      data = {};
-    }
-    if (!resp.ok) {
-      const err = new Error(data.detail || `Request failed (${resp.status})`);
-      err.status = resp.status;
-      throw err;
-    }
-    return data;
-  }
-
+  // ---- Dashboard rendering ----
   function renderStats(summary) {
     const frag = document.createDocumentFragment();
     const cards = [
@@ -121,99 +69,80 @@
       card.appendChild(labelEl);
       frag.appendChild(card);
     });
-    statsEl.textContent = '';
-    statsEl.appendChild(frag);
+    dom.statsEl.textContent = '';
+    dom.statsEl.appendChild(frag);
+  }
+
+  function buildGrievanceRow(g) {
+    const tr = el('tr');
+
+    const idTd = el('td');
+    const idBtn = el(
+      'button',
+      { type: 'button', className: 'id-btn', 'aria-label': `Inspect grievance ${g.id}` },
+      g.id
+    );
+    idBtn.addEventListener('click', () => openDrawer(g.id, idBtn));
+    idTd.appendChild(idBtn);
+    if (g.sensitivity === 'sensitive') {
+      idTd.appendChild(document.createTextNode(' '));
+      idTd.appendChild(el('span', { className: 'lock-tag', 'aria-label': 'Sensitive record' }, '🔒'));
+    }
+    tr.appendChild(idTd);
+
+    tr.appendChild(el('td', null, g.category ? g.category.en : '—'));
+    tr.appendChild(el('td', null, g.ward || '—'));
+
+    const sevTd = el('td');
+    const sevCls = { high: 'b-high', medium: 'b-medium', low: 'b-low' }[g.severity] || 'b-medium';
+    sevTd.appendChild(el('span', { className: 'pill ' + sevCls }, g.severity));
+    tr.appendChild(sevTd);
+
+    const stTd = el('td');
+    stTd.appendChild(el('span', { className: `pill ${g.status === 'resolved' ? 'b-ok' : 'b-teal'}` }, g.status));
+    if (g.escalation_level > 0) {
+      stTd.appendChild(el('span', { 'aria-label': `Escalation level ${g.escalation_level}` }, ` ↑${g.escalation_level}`));
+    }
+    tr.appendChild(stTd);
+
+    const repTd = el('td');
+    if (g.reporter_count > 1) repTd.appendChild(el('span', { 'aria-hidden': 'true' }, '👥 '));
+    repTd.appendChild(document.createTextNode(String(g.reporter_count)));
+    tr.appendChild(repTd);
+
+    const slaText = g.overdue
+      ? 'OVERDUE'
+      : g.sla_due_at
+        ? new Date(g.sla_due_at).toLocaleDateString()
+        : '—';
+    tr.appendChild(el('td', { className: g.overdue ? 'overdue' : '' }, slaText));
+    return tr;
   }
 
   function renderRows(grievances) {
     const frag = document.createDocumentFragment();
     if (!grievances || grievances.length === 0) {
       const tr = el('tr');
-      const td = el(
-        'td',
-        { colspan: '7', className: 'center muted' },
-        'No grievances for this filter/role.'
-      );
-      tr.appendChild(td);
+      tr.appendChild(el('td', { colspan: '7', className: 'center muted' }, 'No grievances for this filter/role.'));
       frag.appendChild(tr);
     } else {
-      grievances.forEach((g) => {
-        const tr = el('tr');
-
-        // Accessible button trigger inside ID cell
-        const idTd = el('td');
-        const idBtn = el(
-          'button',
-          {
-            type: 'button',
-            className: 'id-btn',
-            'aria-label': `Inspect grievance ${g.id}`,
-          },
-          g.id
-        );
-        idBtn.addEventListener('click', () => openDrawer(g.id, idBtn));
-        idTd.appendChild(idBtn);
-        if (g.sensitivity === 'sensitive') {
-          idTd.appendChild(document.createTextNode(' '));
-          idTd.appendChild(
-            el('span', { className: 'lock-tag', 'aria-label': 'Sensitive record' }, '🔒')
-          );
-        }
-        tr.appendChild(idTd);
-
-        tr.appendChild(el('td', null, g.category ? g.category.en : '—'));
-        tr.appendChild(el('td', null, g.ward || '—'));
-
-        const sevTd = el('td');
-        const sevCls = { high: 'b-high', medium: 'b-medium', low: 'b-low' }[g.severity] || 'b-medium';
-        sevTd.appendChild(el('span', { className: 'pill ' + sevCls }, g.severity));
-        tr.appendChild(sevTd);
-
-        const stTd = el('td');
-        const stCls = g.status === 'resolved' ? 'b-ok' : 'b-teal';
-        stTd.appendChild(el('span', { className: 'pill ' + stCls }, g.status));
-        if (g.escalation_level > 0) {
-          stTd.appendChild(
-            el(
-              'span',
-              { 'aria-label': `Escalation level ${g.escalation_level}` },
-              ` ↑${g.escalation_level}`
-            )
-          );
-        }
-        tr.appendChild(stTd);
-
-        const repTd = el('td');
-        if (g.reporter_count > 1) {
-          repTd.appendChild(el('span', { 'aria-hidden': 'true' }, '👥 '));
-        }
-        repTd.appendChild(document.createTextNode(String(g.reporter_count)));
-        tr.appendChild(repTd);
-
-        const slaText = g.overdue
-          ? 'OVERDUE'
-          : g.sla_due_at
-            ? new Date(g.sla_due_at).toLocaleDateString()
-            : '—';
-        tr.appendChild(el('td', { className: g.overdue ? 'overdue' : '' }, slaText));
-        frag.appendChild(tr);
-      });
+      grievances.forEach((g) => frag.appendChild(buildGrievanceRow(g)));
     }
-    rowsEl.textContent = '';
-    rowsEl.appendChild(frag);
+    dom.rowsEl.textContent = '';
+    dom.rowsEl.appendChild(frag);
   }
 
   async function loadDashboard() {
-    clearBanners();
+    statusUI.clear();
     const role = currentRole();
-    escalateBtn.disabled = !ESCALATION_ROLES.has(role);
-    roleNoteEl.textContent = SENSITIVE_ROLES.has(role)
+    dom.escalateBtn.disabled = !ESCALATION_ROLES.has(role);
+    dom.roleNoteEl.textContent = SENSITIVE_ROLES.has(role)
       ? ''
       : 'Sensitive grievances are hidden from this role.';
 
     const params = new URLSearchParams();
-    if (statusSelect.value) params.set('status', statusSelect.value);
-    if (catSelect.value) params.set('category', catSelect.value);
+    if (dom.statusSelect.value) params.set('status', dom.statusSelect.value);
+    if (dom.catSelect.value) params.set('category', dom.catSelect.value);
     const query = params.toString() ? `?${params.toString()}` : '';
 
     try {
@@ -221,153 +150,47 @@
         api('/admin/oversight'),
         api('/admin/grievances' + query),
       ]);
-      adminKeySection.classList.add('hidden');
+      dom.adminKeySection.classList.add('hidden');
       renderStats(summary);
       renderRows(listData.grievances || []);
-      announce(`Loaded ${(listData.grievances || []).length} grievances.`);
+      statusUI.announce(`Loaded ${(listData.grievances || []).length} grievances.`);
     } catch (err) {
       if (err.status === 401) {
-        adminKeySection.classList.remove('hidden');
-        adminKeyInput.focus();
+        dom.adminKeySection.classList.remove('hidden');
+        dom.adminKeyInput.focus();
       }
-      showError(err.message);
+      statusUI.showError(err.message);
     }
   }
 
-  // ---- Accessible Modal Drawer with Focus Trap ----
-  function getFocusable(container) {
-    return Array.from(
-      container.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
-      )
-    );
-  }
-
-  function handleDrawerKeydown(event) {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      closeDrawer();
-      return;
-    }
-    if (event.key === 'Tab') {
-      const focusables = getFocusable(drawerEl);
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-  }
-
-  function showDrawerShell() {
-    backdropEl.classList.remove('hidden');
-    drawerEl.classList.remove('hidden');
-    drawerEl.setAttribute('aria-hidden', 'false');
-    document.addEventListener('keydown', handleDrawerKeydown);
-  }
-
-  function closeDrawer() {
-    drawerEl.classList.add('hidden');
-    drawerEl.setAttribute('aria-hidden', 'true');
-    backdropEl.classList.add('hidden');
-    document.removeEventListener('keydown', handleDrawerKeydown);
-    if (lastTriggerEl && typeof lastTriggerEl.focus === 'function') {
-      lastTriggerEl.focus();
-    }
-  }
-
-  async function openDrawer(gid, triggerEl) {
-    if (triggerEl) lastTriggerEl = triggerEl;
-    clearBanners();
-    drawerEl.textContent = '';
-
-    try {
-      const g = await api(`/admin/grievances/${encodeURIComponent(gid)}`);
-      renderDrawerContent(g);
-      showDrawerShell();
-      const closeBtn = drawerEl.querySelector('.close-btn');
-      if (closeBtn) closeBtn.focus();
-    } catch (err) {
-      const head = el('div', { className: 'drawer-header' });
-      head.appendChild(el('h2', { id: 'drawerTitle' }, 'Restricted'));
-      const closeBtn = el('button', {
-        type: 'button',
-        className: 'close-btn',
-        'aria-label': 'Close grievance details',
-      }, '✕');
-      closeBtn.addEventListener('click', closeDrawer);
-      head.appendChild(closeBtn);
-      drawerEl.appendChild(head);
-      drawerEl.appendChild(el('p', { className: 'mt' }, err.message));
-      showDrawerShell();
-      closeBtn.focus();
-    }
-  }
-
-  function renderDrawerContent(g) {
+  // ---- Modal drawer helpers ----
+  function buildDrawerHeader(titleText, subtitleText, isSensitive) {
     const head = el('div', { className: 'drawer-header' });
     const titleWrap = el('div');
-    const title = el('h2', { id: 'drawerTitle' }, g.id);
-    if (g.sensitivity === 'sensitive') {
+    const title = el('h2', { id: 'drawerTitle' }, titleText);
+    if (isSensitive) {
       title.appendChild(document.createTextNode(' '));
       title.appendChild(el('span', { className: 'lock-tag', 'aria-label': 'Sensitive' }, '🔒'));
     }
     titleWrap.appendChild(title);
-    titleWrap.appendChild(
-      el('p', { className: 'muted' }, `${g.category ? g.category.en : '—'} · ${g.dept || '—'}`)
-    );
+    if (subtitleText) {
+      titleWrap.appendChild(el('p', { className: 'muted' }, subtitleText));
+    }
 
     const closeBtn = el(
       'button',
-      {
-        type: 'button',
-        className: 'close-btn',
-        'aria-label': 'Close grievance details',
-      },
+      { type: 'button', className: 'close-btn', 'aria-label': 'Close grievance details' },
       '✕'
     );
     closeBtn.addEventListener('click', closeDrawer);
     head.appendChild(titleWrap);
     head.appendChild(closeBtn);
-    drawerEl.appendChild(head);
+    return { head, closeBtn };
+  }
 
-    // Verbatim citizen words (strictly textContent — zero XSS)
-    const rawBox = el('div', { className: 'raw-box' });
-    rawBox.appendChild(el('strong', null, "Citizen's words (verbatim):"));
-    rawBox.appendChild(document.createElement('br'));
-    rawBox.appendChild(document.createTextNode(g.description_raw || ''));
-    drawerEl.appendChild(rawBox);
-
-    // Metadata definition list
-    const dl = el('dl', { className: 'kv-grid' });
-    const locStr = [g.ward || '—', g.landmark || ''].filter(Boolean).join(' · ');
-    appendKv(dl, 'Ward', locStr);
-    appendKv(dl, 'Severity', g.severity || '—');
-    appendKv(dl, 'Status', `${g.status} (escalation ${g.escalation_level})`);
-    appendKv(dl, 'Reporters', String(g.reporter_count));
-    const slaDue = g.sla_due_at ? new Date(g.sla_due_at).toLocaleString() : '—';
-    appendKv(dl, 'SLA due', g.overdue ? `${slaDue} — OVERDUE` : slaDue, g.overdue ? 'overdue' : '');
-    drawerEl.appendChild(dl);
-
-    // Audit chain status
-    const chainEl = el(
-      'p',
-      { className: g.chain_valid ? 'chain-status' : 'chain-status broken' },
-      g.chain_valid
-        ? 'Audit chain verified · tamper-evident'
-        : 'Audit chain verification FAILED'
-    );
-    drawerEl.appendChild(chainEl);
-
-    // History timeline
-    drawerEl.appendChild(el('h3', null, 'Audit History'));
-    const histList = el('ol', { className: 'ev-list' });
-    (g.history || []).forEach((ev) => {
+  function buildAuditHistoryList(history) {
+    const list = el('ol', { className: 'ev-list' });
+    (history || []).forEach((ev) => {
       const li = el('li', { className: 'ev-item' });
       li.appendChild(el('strong', null, ev.type));
       const transition = ev.from ? ` ${ev.from} → ${ev.to || ''}` : ev.to ? ` ${ev.to}` : '';
@@ -378,17 +201,19 @@
       }
       li.appendChild(document.createElement('br'));
       li.appendChild(el('time', { datetime: ev.at }, new Date(ev.at).toLocaleString()));
-      histList.appendChild(li);
+      list.appendChild(li);
     });
-    drawerEl.appendChild(histList);
+    return list;
+  }
 
-    // Officer actions (hidden for read-only auditor)
+  function buildOfficerActions(g) {
+    const frag = document.createDocumentFragment();
     if (currentRole() === 'auditor') {
-      drawerEl.appendChild(el('p', { className: 'muted mt' }, 'Auditor role is read-only.'));
-      return;
+      frag.appendChild(el('p', { className: 'muted mt' }, 'Auditor role is read-only.'));
+      return frag;
     }
 
-    drawerEl.appendChild(el('h3', null, 'Officer Actions'));
+    frag.appendChild(el('h3', null, 'Officer Actions'));
 
     const noteField = el('div', { className: 'field' });
     noteField.appendChild(el('label', { for: 'resolutionNote' }, 'Action / Resolution Note'));
@@ -398,7 +223,7 @@
       placeholder: 'Enter inspection or resolution note...',
     });
     noteField.appendChild(noteInput);
-    drawerEl.appendChild(noteField);
+    frag.appendChild(noteField);
 
     const statusBtns = el('div', { className: 'row mt' });
     const inProgBtn = el('button', { type: 'button', className: 'btn row-grow' }, 'Mark In Progress');
@@ -418,9 +243,8 @@
     );
     statusBtns.appendChild(inProgBtn);
     statusBtns.appendChild(resolveBtn);
-    drawerEl.appendChild(statusBtns);
+    frag.appendChild(statusBtns);
 
-    // Assign officer form
     const assignField = el('div', { className: 'field' });
     assignField.appendChild(el('label', { for: 'assignSel' }, 'Assign Officer'));
     const assignRow = el('div', { className: 'row' });
@@ -441,51 +265,112 @@
     assignRow.appendChild(assignSel);
     assignRow.appendChild(assignBtn);
     assignField.appendChild(assignRow);
-    drawerEl.appendChild(assignField);
+    frag.appendChild(assignField);
+    return frag;
   }
 
-  function appendKv(dl, key, value, ddClass) {
-    dl.appendChild(el('dt', null, key));
-    dl.appendChild(el('dd', { className: ddClass || null }, value));
+  function showDrawerShell() {
+    dom.backdropEl.classList.remove('hidden');
+    dom.drawerEl.classList.remove('hidden');
+    dom.drawerEl.setAttribute('aria-hidden', 'false');
+    focusTrap.activate();
   }
 
-  async function updateGrievance(gid, payload) {
-    clearBanners();
+  function closeDrawer() {
+    dom.drawerEl.classList.add('hidden');
+    dom.drawerEl.setAttribute('aria-hidden', 'true');
+    dom.backdropEl.classList.add('hidden');
+    focusTrap.deactivate();
+    if (state.lastTriggerEl && typeof state.lastTriggerEl.focus === 'function') {
+      state.lastTriggerEl.focus();
+    }
+  }
+
+  async function openDrawer(gid, triggerEl) {
+    if (triggerEl) state.lastTriggerEl = triggerEl;
+    statusUI.clear();
+    dom.drawerEl.textContent = '';
+
     try {
-      await api(`/admin/grievances/${encodeURIComponent(gid)}`, 'PATCH', payload);
-      showStatus(`Updated grievance ${gid}.`);
+      const g = await api(`/admin/grievances/${encodeURIComponent(gid)}`);
+      const subtitle = `${g.category ? g.category.en : '—'} · ${g.dept || '—'}`;
+      const { head, closeBtn } = buildDrawerHeader(g.id, subtitle, g.sensitivity === 'sensitive');
+      dom.drawerEl.appendChild(head);
+
+      const rawBox = el('div', { className: 'raw-box' });
+      rawBox.appendChild(el('strong', null, "Citizen's words (verbatim):"));
+      rawBox.appendChild(document.createElement('br'));
+      rawBox.appendChild(document.createTextNode(g.description_raw || ''));
+      dom.drawerEl.appendChild(rawBox);
+
+      const dl = el('dl', { className: 'kv-grid' });
+      appendKv(dl, 'Ward', [g.ward || '—', g.landmark || ''].filter(Boolean).join(' · '));
+      appendKv(dl, 'Severity', g.severity || '—');
+      appendKv(dl, 'Status', `${g.status} (escalation ${g.escalation_level})`);
+      appendKv(dl, 'Reporters', String(g.reporter_count));
+      const slaDue = g.sla_due_at ? new Date(g.sla_due_at).toLocaleString() : '—';
+      appendKv(dl, 'SLA due', g.overdue ? `${slaDue} — OVERDUE` : slaDue, g.overdue ? 'overdue' : '');
+      dom.drawerEl.appendChild(dl);
+
+      dom.drawerEl.appendChild(
+        el(
+          'p',
+          { className: g.chain_valid ? 'chain-status' : 'chain-status broken' },
+          g.chain_valid ? 'Audit chain verified · tamper-evident' : 'Audit chain verification FAILED'
+        )
+      );
+      dom.drawerEl.appendChild(el('h3', null, 'Audit History'));
+      dom.drawerEl.appendChild(buildAuditHistoryList(g.history));
+      dom.drawerEl.appendChild(buildOfficerActions(g));
+
+      showDrawerShell();
+      closeBtn.focus();
+    } catch (err) {
+      const { head, closeBtn } = buildDrawerHeader('Restricted', '', false);
+      dom.drawerEl.appendChild(head);
+      dom.drawerEl.appendChild(el('p', { className: 'mt' }, err.message));
+      showDrawerShell();
+      closeBtn.focus();
+    }
+  }
+
+  async function updateGrievance(gid, body) {
+    statusUI.clear();
+    try {
+      await api(`/admin/grievances/${encodeURIComponent(gid)}`, { method: 'PATCH', body });
+      statusUI.showStatus(`Updated grievance ${gid}.`);
       await Promise.all([openDrawer(gid), loadDashboard()]);
     } catch (err) {
-      showError(err.message);
+      statusUI.showError(err.message);
     }
   }
 
   async function runEscalation() {
-    clearBanners();
+    statusUI.clear();
     try {
-      const res = await api('/admin/run-escalation', 'POST');
+      const res = await api('/admin/run-escalation', { method: 'POST' });
       const moved = res.escalated || [];
-      showStatus(
+      statusUI.showStatus(
         moved.length > 0
           ? `SLA escalation completed: ${moved.join(', ')}`
           : 'SLA escalation checked: no overdue grievances needed escalation.'
       );
       await loadDashboard();
     } catch (err) {
-      showError(err.message);
+      statusUI.showError(err.message);
     }
   }
 
-  // ---- Event listeners ----
-  roleSelect.addEventListener('change', loadDashboard);
-  statusSelect.addEventListener('change', loadDashboard);
-  catSelect.addEventListener('change', loadDashboard);
-  escalateBtn.addEventListener('click', runEscalation);
-  backdropEl.addEventListener('click', closeDrawer);
-  adminKeyForm.addEventListener('submit', (e) => {
+  // ---- Event bindings ----
+  dom.roleSelect.addEventListener('change', loadDashboard);
+  dom.statusSelect.addEventListener('change', loadDashboard);
+  dom.catSelect.addEventListener('change', loadDashboard);
+  dom.escalateBtn.addEventListener('click', runEscalation);
+  dom.backdropEl.addEventListener('click', closeDrawer);
+  dom.adminKeyForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    adminApiKey = adminKeyInput.value.trim();
-    adminKeyInput.value = '';
+    state.adminApiKey = dom.adminKeyInput.value.trim();
+    dom.adminKeyInput.value = '';
     loadDashboard();
   });
 
