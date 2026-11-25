@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+from typing import Literal
 
 from . import config
 from .schemas import (
@@ -81,7 +82,7 @@ def _detect_ward(text_lower: str) -> str | None:
     return None
 
 
-def _detect_lang(text: str) -> str:
+def _detect_lang(text: str) -> Literal["ta", "en", "mixed"]:
     has_tamil = bool(_TAMIL_RE.search(text))
     has_latin = bool(_LATIN_RE.search(text))
     if has_tamil and has_latin:
@@ -162,6 +163,7 @@ def mock_intake(user_content: str) -> IntakeResult:
         description="filled" if have_desc else "missing",
     )
 
+    action: Literal["ask", "ready_to_file"]
     if not have_loc:
         msg = (
             "இது எந்தப் பகுதி அல்லது வார்டில்?"

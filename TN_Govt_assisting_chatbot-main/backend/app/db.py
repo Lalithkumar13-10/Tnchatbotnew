@@ -59,7 +59,7 @@ class Base(DeclarativeBase):
 
 def now() -> dt.datetime:
     """Return current UTC timestamp (naive UTC for consistent SQLite comparisons)."""
-    return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+    return dt.datetime.now(dt.UTC).replace(tzinfo=None)
 
 
 class Grievance(Base):
@@ -97,7 +97,7 @@ class Grievance(Base):
     parent_grievance_id: Mapped[str | None] = mapped_column(String, nullable=True)
     reporter_count: Mapped[int] = mapped_column(Integer, default=1)
 
-    events: Mapped[list["AuditEvent"]] = relationship(
+    events: Mapped[list[AuditEvent]] = relationship(
         back_populates="grievance", order_by="AuditEvent.id"
     )
 
@@ -119,7 +119,7 @@ class AuditEvent(Base):
     prev_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     hash: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    grievance: Mapped["Grievance"] = relationship(back_populates="events")
+    grievance: Mapped[Grievance] = relationship(back_populates="events")
 
 
 class Officer(Base):

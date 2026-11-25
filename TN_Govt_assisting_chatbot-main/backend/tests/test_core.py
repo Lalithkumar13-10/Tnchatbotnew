@@ -2,13 +2,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import os
-import pathlib
-import sys
-
-os.environ["LLM_MODE"] = "mock"
-os.environ["DB_URL"] = "sqlite:///./test_nk.db"
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 import pytest
 from fastapi.testclient import TestClient
@@ -150,6 +143,7 @@ def test_audit_chain_detects_tampering():
         )
         assert gov.verify_chain(db, g.id) is True
         ev = db.query(AuditEvent).filter_by(grievance_id=g.id).first()
+        assert ev is not None
         ev.note = "tampered note"
         db.commit()
         assert gov.verify_chain(db, g.id) is False

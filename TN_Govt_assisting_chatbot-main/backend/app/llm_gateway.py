@@ -22,9 +22,6 @@ import logging
 import threading
 import time
 from collections import deque
-from typing import Type
-
-from pydantic import BaseModel
 
 from . import config
 from .mock_llm import mock_intake
@@ -38,7 +35,7 @@ class GatewayExhausted(RuntimeError):
 
 
 def _today() -> str:
-    return dt.datetime.now(dt.timezone.utc).date().isoformat()
+    return dt.datetime.now(dt.UTC).date().isoformat()
 
 
 class _ModelState:
@@ -132,8 +129,8 @@ class GeminiPool:
         group: str,
         system: str,
         user: str,
-        schema: Type[BaseModel] = IntakeResult,
-    ) -> BaseModel:
+        schema: type[IntakeResult] = IntakeResult,
+    ) -> IntakeResult:
         est = (len(system) + len(user)) // 4 + 512
         if not config.llm_is_live():
             return mock_intake(user)  # offline deterministic path

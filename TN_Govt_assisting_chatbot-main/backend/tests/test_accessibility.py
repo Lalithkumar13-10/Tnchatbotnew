@@ -155,7 +155,7 @@ def test_citizen_html_wcag_compliance():
     assert "#main-content" in a.skip_links
     assert 1 in a.headings
     # Ensure no skipped heading levels (e.g. h1 -> h3)
-    for prev, curr in zip(a.headings, a.headings[1:]):
+    for prev, curr in zip(a.headings, a.headings[1:], strict=False):
         assert curr - prev <= 1
     # Every form control has an explicit <label for=...> or aria-label
     for ctrl in a.controls:

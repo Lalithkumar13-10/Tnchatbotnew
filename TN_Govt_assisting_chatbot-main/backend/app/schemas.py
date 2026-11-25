@@ -4,16 +4,15 @@ and API speak."""
 from __future__ import annotations
 
 import re
-from enum import Enum
-from typing import Literal, Optional
+from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
-
 
 _PHONE_DIGITS_RE = re.compile(r"\D+")
 
 
-class Category(str, Enum):
+class Category(StrEnum):
     streetlight = "streetlight"
     garbage = "garbage"
     water_supply = "water_supply"
@@ -23,13 +22,13 @@ class Category(str, Enum):
     other = "other"
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     low = "low"
     medium = "medium"
     high = "high"
 
 
-class GrievanceStatus(str, Enum):
+class GrievanceStatus(StrEnum):
     registered = "registered"
     assigned = "assigned"
     in_progress = "in_progress"
@@ -48,17 +47,17 @@ class GpsPoint(BaseModel):
 
 
 class Location(BaseModel):
-    ward: Optional[str] = Field(default=None, max_length=120)
-    landmark: Optional[str] = Field(default=None, max_length=200)
-    address_text: Optional[str] = Field(default=None, max_length=300)
+    ward: str | None = Field(default=None, max_length=120)
+    landmark: str | None = Field(default=None, max_length=200)
+    address_text: str | None = Field(default=None, max_length=300)
 
 
 class Extraction(BaseModel):
-    category: Optional[Category] = None
-    sub_category: Optional[str] = Field(default=None, max_length=120)
-    description_clean: Optional[str] = Field(default=None, max_length=2000)
+    category: Category | None = None
+    sub_category: str | None = Field(default=None, max_length=120)
+    description_clean: str | None = Field(default=None, max_length=2000)
     location: Location = Field(default_factory=Location)
-    severity: Optional[Severity] = None
+    severity: Severity | None = None
     language_detected: Literal["ta", "ta-latin", "en", "mixed"] = "en"
 
 
@@ -89,7 +88,7 @@ class IntakeMessageIn(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=128)
     ui_language: Literal["ta", "en"] = "en"
     text: str = Field(..., min_length=1, max_length=2000)
-    gps: Optional[GpsPoint] = None
+    gps: GpsPoint | None = None
 
 
 class ConfirmIn(BaseModel):
@@ -97,13 +96,13 @@ class ConfirmIn(BaseModel):
     ui_language: Literal["ta", "en"] = "en"
     reporter_phone: str = Field(..., min_length=10, max_length=20)
     category: Category
-    ward: Optional[str] = Field(default=None, max_length=120)
-    landmark: Optional[str] = Field(default=None, max_length=200)
+    ward: str | None = Field(default=None, max_length=120)
+    landmark: str | None = Field(default=None, max_length=200)
     description: str = Field(..., min_length=1, max_length=2000)
     severity: Severity = Severity.medium
-    gps: Optional[GpsPoint] = None
-    add_support_to: Optional[str] = Field(default=None, max_length=64)
-    bypass_dedup: Optional[bool] = False
+    gps: GpsPoint | None = None
+    add_support_to: str | None = Field(default=None, max_length=64)
+    bypass_dedup: bool | None = False
 
     @field_validator("reporter_phone")
     @classmethod
@@ -149,7 +148,7 @@ class FeedbackIn(BaseModel):
 
 
 class AdminUpdateIn(BaseModel):
-    status: Optional[GrievanceStatus] = None
-    officer_id: Optional[str] = Field(default=None, min_length=2, max_length=64)
-    note: Optional[str] = Field(default=None, max_length=1000)
-    actor: Optional[str] = Field(default=None, min_length=2, max_length=64)
+    status: GrievanceStatus | None = None
+    officer_id: str | None = Field(default=None, min_length=2, max_length=64)
+    note: str | None = Field(default=None, max_length=1000)
+    actor: str | None = Field(default=None, min_length=2, max_length=64)

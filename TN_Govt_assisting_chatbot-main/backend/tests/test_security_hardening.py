@@ -7,14 +7,6 @@ delimiter instructions.
 """
 from __future__ import annotations
 
-import os
-import pathlib
-import sys
-
-os.environ["LLM_MODE"] = "mock"
-os.environ["DB_URL"] = "sqlite:///./test_nk.db"
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-
 import pytest
 from fastapi.testclient import TestClient
 
